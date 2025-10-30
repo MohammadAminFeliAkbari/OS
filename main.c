@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <limits.h>
 #include <errno.h>
+#include <time.h>
 
 int *readFile(int *count, const char *fileName)
 {
@@ -217,8 +218,59 @@ void writeMaxMid(int numberOfFork)
     free(section);
 }
 
+void calculateAverageAndMax()
+{
+    char *input = reader();
+    double average = 0;
+    double max = INT_MIN;
+
+    char buffer[1024];
+    strcpy(buffer, input); // چون strtok رشته اصلی رو تغییر میده
+
+    const char *section_delim = "-";
+    char *section = strtok(buffer, section_delim);
+
+    double leftSum = 0;
+    int leftCount = 0;
+
+    while (section != NULL)
+    {
+        // جدا کردن بخش چپ و راست با ','
+        char *comma = strchr(section, ',');
+        if (comma != NULL)
+        {
+            *comma = '\0'; // جدا کردن بخش چپ و راست
+            double left = atof(section);
+            double right = atof(comma + 1);
+
+            leftSum += left;
+            leftCount++;
+
+            if (right > max)
+                max = right;
+        }
+
+        section = strtok(NULL, section_delim);
+    }
+
+    if (leftCount > 0)
+        average = leftSum / leftCount;
+    else
+        average = 0;
+
+    printf("%f , %f\n", average, max);
+}
+
+double get_time_ms() // 👈 بیار بالا
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
+}
+
 int main(int argc, char const *argv[])
 {
+    double start_time = get_time_ms(); // ✅ شروع تایم
     int numberOfFork = atoi(argv[1]);
     const char *filename = argv[2];
     const char *x = argv[3];
@@ -267,7 +319,9 @@ int main(int argc, char const *argv[])
     }
 
     if (!x)
-        printf("Final result: %s\n", reader());
+        calculateAverageAndMax();
 
+    double end_time = get_time_ms(); // ✅ پایان تایم
+    printf("⏱ Execution time: %.3f ms\n", end_time - start_time);
     return 0;
 }
