@@ -6,63 +6,6 @@
 #include <sys/shm.h>
 #include <math.h>
 
-// int makeFork(int numberOfFork)
-// {
-//     int x = 1;
-//     int numberOfLoopForMakeFork = 0;
-//     for (size_t i = 0; i < 20; i++)
-//     {
-//         if (x >= numberOfFork)
-//         {
-//             numberOfLoopForMakeFork = i;
-//             break;
-//         }
-//         x *= 2;
-//     }
-
-//     for (size_t i = 0; i < numberOfLoopForMakeFork; i++)
-//         fork();
-
-//     return numberOfLoopForMakeFork;
-// }
-
-// char *makeOne(int numberOfFork)
-// {
-//     char *str = malloc((numberOfFork + 1) * sizeof(char)); // Allocate memory for the string
-
-//     for (size_t i = 0; i < numberOfFork; i++)
-//     {
-//         str[i] = '1';
-//     }
-
-//     str[numberOfFork] = '\0';
-
-//     return str;
-// }
-
-// int findFirstOne()
-// {
-//     char *token = getSection(2);
-//     char *pos = strchr(token, '1');
-
-//     if (pos != NULL)
-//     {
-//         size_t index = pos - token;
-//         return index;
-//     }
-//     else
-//     {
-//         printf("Character '1' not found in the string.\n");
-//     }
-// }
-
-// void changeStatus()
-{
-    char *token = getSection(1);
-
-    printf("%s\n", token);
-}
-// ------------------------------------------------
 int *readFile(int *count, const char *fileName)
 {
     FILE *file = fopen(fileName, "r");
@@ -159,6 +102,40 @@ char *reader()
     return result; // return safe copy
 }
 
+int makeFork(int numberOfFork)
+{
+    int x = 1;
+    int numberOfLoopForMakeFork = 0;
+    for (size_t i = 0; i < 20; i++)
+    {
+        if (x >= numberOfFork)
+        {
+            numberOfLoopForMakeFork = i;
+            break;
+        }
+        x *= 2;
+    }
+
+    for (size_t i = 0; i < numberOfLoopForMakeFork; i++)
+        fork();
+
+    return numberOfLoopForMakeFork;
+}
+
+char *makeOne(int numberOfFork)
+{
+    char *str = malloc((numberOfFork + 1) * sizeof(char)); // Allocate memory for the string
+
+    for (size_t i = 0; i < numberOfFork; i++)
+    {
+        str[i] = '1';
+    }
+
+    str[numberOfFork] = '\0';
+
+    return str;
+}
+
 void setSharedMemory(int section, char *newStr)
 {
     char *str = reader();                 // رشته اصلی
@@ -223,6 +200,29 @@ char *getSection(int seciontType)
     }
 
     return secondSection; // ✅ رشته‌ی معتبر در heap
+}
+
+int findFirstOne()
+{
+    char *token = getSection(2);
+    char *pos = strchr(token, '1');
+
+    if (pos != NULL)
+    {
+        size_t index = pos - token;
+        return index;
+    }
+    else
+    {
+        printf("Character '1' not found in the string.\n");
+    }
+}
+
+void changeStatus()
+{
+    char *token = getSection(1);
+
+    printf("%s\n", token);
 }
 
 void initialWrite(int numberOfFork, char *fileName)
