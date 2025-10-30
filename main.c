@@ -5,6 +5,8 @@
 #include <string.h>
 #include <sys/shm.h>
 #include <math.h>
+#include <sys/wait.h>
+#include <limits.h>
 
 int *readFile(int *count, const char *fileName)
 {
@@ -68,8 +70,18 @@ void writer(char *text)
     }
 
     strcpy(shared_memory, text);
-    printf("Written: '%s'\n", shared_memory);
+    // printf("Written: '%s'\n", shared_memory);
 
+    shmdt(shared_memory);
+}
+
+void deleteSharedMemory()
+{
+    key_t key = 1234;
+    int shmid;
+    char *shared_memory;
+
+    shmid = shmget(key, 1024, 0666);
     shmdt(shared_memory);
 }
 
@@ -100,40 +112,6 @@ char *reader()
     // shmctl(shmid, IPC_RMID, NULL); // delete shared memory
 
     return result; // return safe copy
-}
-
-int makeFork(int numberOfFork)
-{
-    int x = 1;
-    int numberOfLoopForMakeFork = 0;
-    for (size_t i = 0; i < 20; i++)
-    {
-        if (x >= numberOfFork)
-        {
-            numberOfLoopForMakeFork = i;
-            break;
-        }
-        x *= 2;
-    }
-
-    for (size_t i = 0; i < numberOfLoopForMakeFork; i++)
-        fork();
-
-    return numberOfLoopForMakeFork;
-}
-
-char *makeOne(int numberOfFork)
-{
-    char *str = malloc((numberOfFork + 1) * sizeof(char)); // Allocate memory for the string
-
-    for (size_t i = 0; i < numberOfFork; i++)
-    {
-        str[i] = '1';
-    }
-
-    str[numberOfFork] = '\0';
-
-    return str;
 }
 
 void setSharedMemory(int section, char *newStr)
@@ -202,78 +180,227 @@ char *getSection(int seciontType)
     return secondSection; // ✅ رشته‌ی معتبر در heap
 }
 
-int findFirstOne()
+void initialWrite(int numberOfFork, const char *fileName)
 {
-    char *token = getSection(2);
-    char *pos = strchr(token, '1');
+    int count = 0;
+    int *numbers = readFile(&count, fileName);
 
-    if (pos != NULL)
+    if (numbers == NULL)
     {
-        size_t index = pos - token;
-        return index;
+        printf("Error reading file.\n");
+        return;
+    }
+
+    int x = ceil((double)count / numberOfFork);
+    char buffer[1024] = "";
+
+    for (size_t i = 0; i < numberOfFork; i++)
+    {
+        char str[256] = "";
+
+        for (size_t j = 0; j < x; j++)
+        {
+            int y = x * i + j;
+
+            if (y < count)
+            {
+                char temp[16] = "";
+                sprintf(temp, "%d,", numbers[y]);
+                strcat(str, temp);
+            }
+        }
+        strcat(buffer, str);
+        strcat(buffer, "-");
+    }
+
+    printf("first Initial : %s\n", buffer);
+
+    writer(buffer);
+
+    free(numbers);
+}
+
+double calculateMid(char *str)
+{
+    const char delimiter[] = ",";
+    char *token = strtok(str, delimiter);
+    int sum = 0;
+    int count = 0;
+
+    // جدا کردن و پردازش هر عدد
+    while (token != NULL)
+    {
+        sum += atoi(token);              // تبدیل هر بخش به عدد و افزودن به مجموع
+        count++;                         // افزایش تعداد اعداد
+        token = strtok(NULL, delimiter); // ادامه دادن به بخش بعدی
+    }
+
+    // محاسبه میانگین
+    if (count > 0)
+    {
+        float average = (float)sum / count;
+        // printf("Average: %.2f\n", average);
+        return average;
     }
     else
     {
-        printf("Character '1' not found in the string.\n");
+        printf("No numbers to calculate average\n");
     }
 }
 
-void changeStatus()
+double calculateMax(const char *str)
 {
-    char *token = getSection(1);
+    // 🔹 کپی از رشته‌ی اصلی چون strtok رشته را تغییر می‌دهد
+    char temp[strlen(str) + 1];
+    strcpy(temp, str);
 
-    printf("%s\n", token);
+    const char delimiter[] = ",";
+    char *token = strtok(temp, delimiter);
+    int max = INT_MIN;
+
+    while (token != NULL)
+    {
+        int currentNum = atoi(token);
+        if (currentNum > max)
+            max = currentNum;
+
+        token = strtok(NULL, delimiter);
+    }
+
+    if (max != INT_MIN)
+    {
+        // printf("Max: %d\n", max);
+        return max;
+    }
+    else
+    {
+        printf("No numbers to calculate max\n");
+        return -1;
+    }
 }
 
-void initialWrite(int numberOfFork, char *fileName)
+void writeMaxMid(int numberOfFork)
 {
-    int count = 0;
-    int *number = readFile(&count, fileName);
+    double average = calculateMid(getSection(numberOfFork));
+    char averageToString[50]; // کافیست یک آرایه کافی برای ذخیره نتیجه ایجاد کنید
+    sprintf(averageToString, "%f", average);
 
-    printf("%s\n", number);
-    // char str[256]; // enough space for all parts
+    double max = calculateMax(getSection(numberOfFork));
+    char maxToString[50]; // کافیست یک آرایه کافی برای ذخیره نتیجه ایجاد کنید
+    sprintf(maxToString, "%f", max);
 
-    // strcpy(str, "1-");        // start with "1-"
-    // strcat(str, numberOfOne); // add your generated string
-    // strcat(str, "-");         // add last '-'
+    char result[1024] = ""; // حافظه برای نگهداری رشته ترکیب شده
 
-    // for (size_t i = 0; i < numberOfFork; i++)
-    //     strcat(str, " -");
+    // ابتدا یک رشته خالی
+    result[0] = '\0';
 
-    writer("H");
+    strcat(result, averageToString);
+    strcat(result, ",");
+    strcat(result, maxToString);
+
+    printf("in fork %d ,%s\n", numberOfFork, result);
+    setSharedMemory(numberOfFork, result);
 }
 
-// void deleteSharedMemory()
-// {
-//     shmctl()
-// }
+void printResults(int numberOfFork)
+{
+    char *result = reader(); // no strcat needed
+
+    double max = INT_MIN;
+    double sum = 0;
+
+    for (size_t i = 1; i < numberOfFork + 1; i++)
+    {
+        const char delimiter[] = ",";
+        char *token = strtok(result, delimiter); // Use 'result' instead of 'str'
+        int section = 0;
+
+        printf("token : %s\n", token);
+        // جدا کردن و پردازش هر عدد
+        while (token != NULL)
+        {
+            if (section == 0)
+            {
+                printf("atoi: %f , %s\n", atoi(token), token);
+                sum += atoi(token);
+                token = strtok(NULL, delimiter);
+                section++;
+            }
+            else
+            {
+                double test = atoi(token);
+                if (test > max)
+                    max = test;
+                token = strtok(NULL, delimiter);
+            }
+        }
+    }
+
+    printf("sum : %f\n", sum);
+    // printf("avg : %f\n", sum / numberOfFork);
+}
+
 int main(int argc, char const *argv[])
 {
     int numberOfFork = atoi(argv[1]);
     const char *filename = argv[2];
+    const char *x = argv[3];
 
-    initialWrite(numberOfFork, filename);
+    if (!x)
+    {
+        initialWrite(numberOfFork, filename);
+    }
 
-    // printf("%s\n", reader());
-    // makeFork(numberOfFork);
+    if (numberOfFork == 0)
+        return 0;
 
-    // int rs = findFirstOne();
+    if (numberOfFork == 1)
+    {
+        printf("I'M parent now run 22\n");
+        writeMaxMid(numberOfFork);
 
-    // printf("%d", rs);
-    // setSharedMemory(2, "00001");
+        if (!x)
+            printf("Reader is : %s\n", reader());
+        return 0;
+    }
 
-    // printf("%d\n", findFirstOne());
-    // changeStatus();
+    pid_t pid = fork();
 
-    // makeFork(numberOfFork);
+    if (pid == 0)
+    {
+        printf("I'M child now run 00\n");
+        writeMaxMid(numberOfFork);
+        
+        printf("xxxxxxxx\n");
+        char str_int[20] = "";
+        int newNumber = numberOfFork - 2;
+        sprintf(str_int, "%d", newNumber);
+        printf("newNumber %d\n", newNumber);
 
-    // char *result = reader();
+        execl("./main", "./main", str_int, filename, "x", NULL);
+        perror("execl failed");
+        exit(1);
+    }
+    else if (pid < 0)
+    {
+        perror("fork failed");
+        exit(1);
+    }
+    else
+    {
+        printf("I'M parent now run 11\n");
+        writeMaxMid(numberOfFork - 1);
 
-    // // Don't forget to free dynamically allocated memory
-    // free(numberOfOne);
-    // free(result);
+        while (wait(NULL) > 0)
+            ;
 
-    // findFirstOne();
+        printf("finished all\n");
+    }
 
+    if (!x)
+    {
+        printf("result is -: %s\n", reader());
+        // deleteSharedMemory();
+    }
     return 0;
 }
