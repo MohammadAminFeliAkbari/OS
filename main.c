@@ -286,7 +286,11 @@ int main(int argc, char const *argv[])
         printf("→ Base case (1): parent\n");
         writeMaxMid(numberOfFork);
         if (!x)
+        {
             printf("Final reader: %s\n", reader());
+            double end_time = get_time_ms(); // ✅ پایان تایم
+            printf("⏱ Execution time: %.3f ms\n", end_time - start_time);
+        }
         return 0;
     }
 
